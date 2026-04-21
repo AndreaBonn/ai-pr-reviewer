@@ -1,8 +1,11 @@
 # AI PR Reviewer
 
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Action-AI%20PR%20Review-purple?logo=github)](https://github.com/AndreaBonn/ai-pr-reviewer)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A GitHub Action that reviews Pull Requests using an LLM and posts a structured code review as a PR comment. Supports Groq, Gemini, Anthropic (Claude) and OpenAI.
+[Italiano](README.it.md) | **English**
+
+A GitHub Action that automatically reviews Pull Requests using an LLM and posts a structured code review as a PR comment. Supports **Groq**, **Gemini**, **Anthropic** and **OpenAI**, with automatic fallback between providers.
 
 ---
 
@@ -54,7 +57,7 @@ The action posts a review comment on the PR. Pushing new commits updates the exi
 | `github_token` | **Yes** | — | GitHub token for posting comments |
 | `language` | No | `english` | Review language: `english`, `italian`, `french`, `spanish`, `german` |
 | `max_files` | No | `20` | Max files to review (avoids token limits) |
-| `ignore_patterns` | No | `*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock` | Comma-separated glob patterns to skip |
+| `ignore_patterns` | No | `*.lock,*.min.js,...` | Comma-separated glob patterns to skip |
 
 ---
 
@@ -67,19 +70,29 @@ The action posts a review comment on the PR. Pushing new commits updates the exi
 | Anthropic | Paid | `claude-sonnet-4-5` | Medium | Best |
 | OpenAI | Paid | `gpt-4o-mini` | Medium | Good |
 
-### Provider Fallback
+### Getting API Keys
 
-If one provider fails (rate limit, downtime), the action automatically tries the next one. Configure multiple providers with comma-separated values:
+- **Groq** (free): [console.groq.com](https://console.groq.com)
+- **Gemini** (free): [aistudio.google.com](https://aistudio.google.com)
+- **Anthropic** (paid): [console.anthropic.com](https://console.anthropic.com)
+- **OpenAI** (paid): [platform.openai.com](https://platform.openai.com)
+
+---
+
+## Provider Fallback
+
+If a provider fails (rate limit, downtime), the action automatically tries the next one in the list. Each provider gets its own retry cycle before falling back.
+
+### Multi-provider
 
 ```yaml
-- uses: AndreaBonn/ai-pr-reviewer@v1
-  with:
-    llm_provider: 'groq,gemini'
-    llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GEMINI_API_KEY }}'
-    github_token: ${{ secrets.GITHUB_TOKEN }}
+llm_provider: 'groq,gemini'
+llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GEMINI_API_KEY }}'
 ```
 
-You can also use multiple keys for the same provider to work around per-key rate limits:
+### Multi-key (same provider)
+
+Use multiple API keys for the same provider to work around per-key rate limits:
 
 ```yaml
 llm_provider: 'groq,groq,gemini'
@@ -87,13 +100,6 @@ llm_api_key: '${{ secrets.GROQ_KEY_1 }},${{ secrets.GROQ_KEY_2 }},${{ secrets.GE
 ```
 
 The `llm_model` override applies only to the first provider. Fallback providers use their default model.
-
-### Getting API Keys
-
-- **Groq** (free): [console.groq.com](https://console.groq.com)
-- **Gemini** (free): [aistudio.google.com](https://aistudio.google.com)
-- **Anthropic** (paid): [console.anthropic.com](https://console.anthropic.com)
-- **OpenAI** (paid): [platform.openai.com](https://platform.openai.com)
 
 ---
 
@@ -104,12 +110,12 @@ The generated review covers:
 | Section | What it checks |
 |---------|---------------|
 | **Summary** | Overall assessment of the PR |
-| **Bugs & Logic Issues** | Bugs, logic errors, unhandled edge cases, error handling gaps |
+| **Bugs & Logic Issues** | Verified bugs, logic errors, unhandled edge cases |
 | **Security** | Secrets, injection, unsafe deserialization, auth gaps |
 | **Performance & Scalability** | N+1 queries, blocking I/O, missing pagination |
-| **Breaking Changes** | Modified signatures, changed return types, schema changes |
-| **Testing Gaps** | Missing coverage for new/changed logic |
-| **What's Done Well** | Specific positive highlights |
+| **Breaking Changes** | Removed/renamed public APIs, changed return types |
+| **Testing Gaps** | Specific untested scenarios in new/changed logic |
+| **What's Done Well** | Positive highlights |
 
 ---
 
@@ -121,7 +127,9 @@ When the action runs, a comment like this appears on your PR:
 
 ---
 
-## Provider-Specific Secrets
+## Setup
+
+### Repository Secrets
 
 | Secret | When needed |
 |--------|------------|
@@ -130,13 +138,13 @@ When the action runs, a comment like this appears on your PR:
 | `ANTHROPIC_API_KEY` | If using Anthropic |
 | `OPENAI_API_KEY` | If using OpenAI |
 
-> `GITHUB_TOKEN` is automatically available — no configuration needed.
+`GITHUB_TOKEN` is automatically available — no configuration needed.
 
----
+For multi-key setups, name the secrets freely (e.g. `GROQ_KEY_1`, `GROQ_KEY_2`) and reference them in order in `llm_api_key`.
 
-## Permissions
+### Permissions
 
-The workflow needs read access to contents and write access to pull requests:
+The workflow needs these permissions:
 
 ```yaml
 permissions:
@@ -144,18 +152,13 @@ permissions:
   pull-requests: write
 ```
 
-Or enable it globally: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
+Or enable globally: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
 
 ---
 
-## Privacy
+## Privacy & Security
 
-This action sends the following data to the configured LLM provider (Groq, Gemini, Anthropic, or OpenAI):
-
-- PR title, description, and file diffs
-- File names and change metadata
-
-No credentials or secrets are included in the prompt. However, if your PR description or code diffs contain sensitive information, that data will be transmitted to the third-party LLM API. For private repositories with sensitive data, review your provider's data retention policy.
+This action sends PR titles, descriptions, and file diffs to the configured LLM provider. No credentials or secrets are included in the prompt. See [SECURITY.md](SECURITY.md) for full details on the security measures implemented.
 
 ---
 
