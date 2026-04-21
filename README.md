@@ -31,7 +31,7 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: AndreaBonn/ai-pr-reviewer@v1
+      - uses: AndreaBonn/ai-pr-reviewer@v1.0.0
         with:
           llm_provider: 'groq'
           llm_api_key: ${{ secrets.GROQ_API_KEY }}
