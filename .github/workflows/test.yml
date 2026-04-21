@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - uses: ./
         with:
-          llm_provider: 'groq,gemini'
-          llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GEMINI_API_KEY }}'
+          llm_provider: 'groq,groq,gemini'
+          llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GROQ_API_KEY_2 }},${{ secrets.GEMINI_API_KEY }}'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           language: 'italian'
