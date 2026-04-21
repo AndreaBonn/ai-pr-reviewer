@@ -22,7 +22,7 @@ class TestMain:
     }
 
     @patch("review.post_or_update_comment")
-    @patch("review.call_llm_with_retry", return_value="## Review")
+    @patch("review.call_llm_with_fallback", return_value="## Review")
     @patch("review.get_provider")
     @patch("review.GitHubClient")
     def test_happy_path_posts_review(
@@ -100,7 +100,7 @@ class TestMain:
         with pytest.raises(ConfigError):
             main()
 
-    @patch("review.call_llm_with_retry")
+    @patch("review.call_llm_with_fallback")
     @patch("review.get_provider")
     @patch("review.GitHubClient")
     def test_provider_error_propagates(

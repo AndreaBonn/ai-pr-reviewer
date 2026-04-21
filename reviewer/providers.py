@@ -14,6 +14,7 @@ log = logging.getLogger("ai-pr-reviewer")
 
 LLM_MAX_ATTEMPTS = 3
 LLM_RETRY_BASE_DELAY = 2
+_NON_RETRYABLE_STATUS_CODES = frozenset({401, 403, 413})
 
 
 # ---------------------------------------------------------------------------
@@ -230,11 +231,19 @@ def call_llm_with_retry(
 ) -> str:
     """Call the LLM provider with exponential backoff retry."""
     last_error: Exception | None = None
+    attempts_made = 0
     for attempt in range(1, LLM_MAX_ATTEMPTS + 1):
+        attempts_made = attempt
         try:
             return provider.call(system=system, user=user)
         except (requests.RequestException, LLMAPIError, LLMParseError) as exc:
             last_error = exc
+            if isinstance(exc, LLMAPIError) and exc.status_code in _NON_RETRYABLE_STATUS_CODES:
+                log.error(
+                    "LLM call failed with non-retryable HTTP %d — skipping retries",
+                    exc.status_code,
+                )
+                break
             if attempt < LLM_MAX_ATTEMPTS:
                 delay = LLM_RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 log.warning(
@@ -247,9 +256,44 @@ def call_llm_with_retry(
                 time.sleep(delay)
 
     log.error(
-        "LLM call failed after %d attempts. Last error (%s): %s",
-        LLM_MAX_ATTEMPTS,
+        "LLM call failed after %d attempt(s). Last error (%s): %s",
+        attempts_made,
         type(last_error).__name__,
         last_error,
     )
-    raise ProviderError(f"LLM call failed after {LLM_MAX_ATTEMPTS} attempts: {last_error}")
+    raise ProviderError(f"LLM call failed after {attempts_made} attempt(s): {last_error}")
+
+
+def call_llm_with_fallback(
+    provider_chain: list[tuple[LLMProvider, str]],
+    user: str,
+) -> str:
+    """Try each (provider, system_prompt) pair in order until one succeeds.
+
+    Falls back to the next provider when the current one fails after retries.
+    With a single provider, behaves identically to ``call_llm_with_retry``.
+    """
+    if not provider_chain:
+        raise ProviderError("No LLM providers configured")
+
+    if len(provider_chain) == 1:
+        provider, system = provider_chain[0]
+        return call_llm_with_retry(provider, system=system, user=user)
+
+    errors: list[str] = []
+    for i, (provider, system) in enumerate(provider_chain):
+        provider_label = f"{type(provider).__name__}[{i + 1}/{len(provider_chain)}]"
+        try:
+            return call_llm_with_retry(provider, system=system, user=user)
+        except ProviderError as exc:
+            errors.append(f"{provider_label}: {exc}")
+            remaining = len(provider_chain) - i - 1
+            if remaining > 0:
+                log.warning(
+                    "%s failed: %s — %d fallback(s) remaining",
+                    provider_label,
+                    exc,
+                    remaining,
+                )
+
+    raise ProviderError(f"All {len(provider_chain)} provider(s) failed. {'; '.join(errors)}")

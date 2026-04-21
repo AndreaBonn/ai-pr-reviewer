@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from reviewer.config import Config, _parse_bounded_int
+from reviewer.config import Config, _parse_bounded_int, _parse_csv  # noqa: PLC2701
 from reviewer.exceptions import ConfigError
 
 
@@ -25,7 +25,8 @@ class TestConfigFromEnv:
 
         cfg = Config.from_env()
 
-        assert cfg.llm_provider == "groq"
+        assert cfg.llm_providers == ["groq"]
+        assert cfg.llm_api_keys == ["test-key-123"]
         assert cfg.llm_model == ""
         assert cfg.language == "english"
         assert cfg.max_files == 20
@@ -95,7 +96,7 @@ class TestConfigFromEnv:
 
         cfg = Config.from_env()
 
-        assert cfg.llm_provider == "gemini"
+        assert cfg.llm_providers == ["gemini"]
 
     def test_invalid_repo_format_raises_config_error(
         self,
@@ -176,7 +177,7 @@ class TestConfigRepr:
 
         assert "test-key-123" not in text
         assert "ghp_test" not in text
-        assert "<REDACTED>" in text
+        assert "REDACTED" in text
         assert "groq" in text
 
 
@@ -219,6 +220,61 @@ class TestRequireEnvEdgeCases:
             Config.from_env()
 
         assert "english" in str(exc_info.value)
+
+
+class TestParseCsv:
+    def test_single_value(self) -> None:
+        assert _parse_csv("groq") == ["groq"]
+
+    def test_multiple_values(self) -> None:
+        assert _parse_csv("groq,gemini,openai") == ["groq", "gemini", "openai"]
+
+    def test_strips_whitespace(self) -> None:
+        assert _parse_csv(" groq , gemini ") == ["groq", "gemini"]
+
+    def test_ignores_empty_entries(self) -> None:
+        assert _parse_csv("groq,,gemini,") == ["groq", "gemini"]
+
+    def test_normalize_lowercases(self) -> None:
+        assert _parse_csv("GROQ,Gemini", normalize=True) == ["groq", "gemini"]
+
+    def test_no_normalize_preserves_case(self) -> None:
+        assert _parse_csv("ABC,def") == ["ABC", "def"]
+
+
+class TestMultiProviderConfig:
+    REQUIRED_ENV = TestConfigFromEnv.REQUIRED_ENV
+
+    def test_comma_separated_providers_and_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_PROVIDER", "groq,gemini")
+        monkeypatch.setenv("LLM_API_KEY", "key-groq,key-gemini")
+
+        cfg = Config.from_env()
+
+        assert cfg.llm_providers == ["groq", "gemini"]
+        assert cfg.llm_api_keys == ["key-groq", "key-gemini"]
+
+    def test_same_provider_multiple_keys(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_PROVIDER", "groq,groq")
+        monkeypatch.setenv("LLM_API_KEY", "key1,key2")
+
+        cfg = Config.from_env()
+
+        assert cfg.llm_providers == ["groq", "groq"]
+        assert cfg.llm_api_keys == ["key1", "key2"]
+
+    def test_mismatched_count_raises_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_PROVIDER", "groq,gemini")
+        monkeypatch.setenv("LLM_API_KEY", "only-one-key")
+
+        with pytest.raises(ConfigError, match="2 entries.*1"):
+            Config.from_env()
 
 
 class TestParseBoundedInt:

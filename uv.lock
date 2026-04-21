@@ -29,9 +29,9 @@ dev = [
     { name = "autoflake", specifier = ">=2.3.3" },
     { name = "bandit", specifier = ">=1.9.4" },
     { name = "pip-audit", specifier = ">=2.10.0" },
-    { name = "pytest", specifier = ">=8.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "ruff", specifier = ">=0.4.0" },
+    { name = "ruff", specifier = ">=0.15.11" },
     { name = "vulture", specifier = ">=2.16" },
 ]
 

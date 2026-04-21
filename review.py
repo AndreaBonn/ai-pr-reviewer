@@ -10,7 +10,7 @@ from reviewer.exceptions import ReviewerError
 from reviewer.filters import filter_pr_files
 from reviewer.github_client import GitHubClient, post_or_update_comment
 from reviewer.prompt import build_prompt, get_system_prompt
-from reviewer.providers import call_llm_with_retry, get_provider
+from reviewer.providers import call_llm_with_fallback, get_provider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,10 +24,10 @@ def main() -> None:
 
     github = GitHubClient(token=cfg.github_token, repo=cfg.repo)
     log.info(
-        "Reviewing PR #%s on %s (provider=%s, language=%s)",
+        "Reviewing PR #%s on %s (providers=%s, language=%s)",
         cfg.pr_number,
         cfg.repo,
-        cfg.llm_provider,
+        ",".join(cfg.llm_providers),
         cfg.language,
     )
 
@@ -66,17 +66,14 @@ def main() -> None:
         skipped=skipped,
     )
 
-    provider = get_provider(
-        name=cfg.llm_provider,
-        api_key=cfg.llm_api_key,
-        model=cfg.llm_model,
-    )
-    system_prompt = get_system_prompt(provider=cfg.llm_provider)
-    review = call_llm_with_retry(
-        provider,
-        system=system_prompt,
-        user=prompt,
-    )
+    provider_chain: list[tuple] = []
+    for i, (name, key) in enumerate(zip(cfg.llm_providers, cfg.llm_api_keys)):
+        model = cfg.llm_model if i == 0 else ""
+        provider = get_provider(name=name, api_key=key, model=model)
+        system_prompt = get_system_prompt(provider=name)
+        provider_chain.append((provider, system_prompt))
+
+    review = call_llm_with_fallback(provider_chain, user=prompt)
 
     post_or_update_comment(
         github,
