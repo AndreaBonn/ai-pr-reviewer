@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from review import main
-from reviewer.exceptions import ConfigError, ProviderError
+from reviewer.exceptions import ConfigError, GitHubAPIError, ProviderError
 
 
 class TestMain:
@@ -98,4 +98,19 @@ class TestMain:
         mock_call_llm.side_effect = ProviderError("LLM failed")
 
         with pytest.raises(ProviderError):
+            main()
+
+    @patch("review.GitHubClient")
+    def test_github_api_error_propagates(
+        self,
+        mock_github_cls: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+
+        mock_github = mock_github_cls.return_value
+        mock_github.get_pr_files.side_effect = GitHubAPIError("rate limit hit")
+
+        with pytest.raises(GitHubAPIError):
             main()

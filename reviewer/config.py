@@ -12,6 +12,7 @@ from reviewer.exceptions import ConfigError
 log = logging.getLogger("ai-pr-reviewer")
 
 _REPO_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+_MODEL_PATTERN = re.compile(r"^[a-zA-Z0-9._:/-]{1,100}$")
 
 SUPPORTED_LANGUAGES = frozenset(
     {
@@ -55,7 +56,15 @@ class Config:
         patterns = [p.strip() for p in raw_patterns.split(",") if p.strip()]
 
         raw_lang = os.environ.get("REVIEW_LANGUAGE", "english").lower().strip()
-        language = raw_lang if raw_lang in SUPPORTED_LANGUAGES else "english"
+        if raw_lang not in SUPPORTED_LANGUAGES:
+            log.warning(
+                "Unsupported REVIEW_LANGUAGE=%r — falling back to 'english'. Supported: %s",
+                raw_lang,
+                ", ".join(sorted(SUPPORTED_LANGUAGES)),
+            )
+            language = "english"
+        else:
+            language = raw_lang
 
         max_files = _parse_bounded_int(
             os.environ.get("MAX_FILES", "20"),
@@ -66,7 +75,7 @@ class Config:
         return cls(
             llm_provider=_require_env("LLM_PROVIDER").lower().strip(),
             llm_api_key=_require_env("LLM_API_KEY"),
-            llm_model=os.environ.get("LLM_MODEL", "").strip(),
+            llm_model=_validate_optional_model(os.environ.get("LLM_MODEL", "").strip()),
             github_token=_require_env("GITHUB_TOKEN"),
             language=language,
             max_files=max_files,
@@ -79,7 +88,7 @@ class Config:
 
 
 def _require_env(name: str) -> str:
-    value = os.environ.get(name)
+    value = os.environ.get(name, "").strip()
     if not value:
         raise ConfigError(f"Missing required environment variable: {name}")
     return value
@@ -97,6 +106,17 @@ def _require_repo_env(name: str) -> str:
     if not _REPO_PATTERN.match(value):
         raise ConfigError(
             f"Environment variable {name} must be 'owner/repo' format, got: {value!r}"
+        )
+    return value
+
+
+def _validate_optional_model(value: str) -> str:
+    if not value:
+        return value
+    if not _MODEL_PATTERN.match(value) or ".." in value:
+        raise ConfigError(
+            f"LLM_MODEL contains invalid characters, got: {value!r}. "
+            "Only alphanumerics, dots, dashes, underscores, colons and slashes allowed."
         )
     return value
 

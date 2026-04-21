@@ -8,34 +8,12 @@ from abc import ABC, abstractmethod
 
 import requests
 
-from reviewer.exceptions import ProviderError
+from reviewer.exceptions import LLMAPIError, LLMParseError, ProviderError
 
 log = logging.getLogger("ai-pr-reviewer")
 
-LLM_MAX_RETRIES = 2
+LLM_MAX_ATTEMPTS = 2
 LLM_RETRY_BASE_DELAY = 5
-
-
-# ---------------------------------------------------------------------------
-# Exceptions
-# ---------------------------------------------------------------------------
-
-
-class LLMAPIError(Exception):
-    """Safe error that never leaks response body or API keys in its repr."""
-
-    def __init__(self, status_code: int, provider: str) -> None:
-        self.status_code = status_code
-        self.provider = provider
-        super().__init__(f"{provider} API returned HTTP {status_code}")
-
-
-class LLMParseError(Exception):
-    """Raised when the LLM response has an unexpected structure."""
-
-    def __init__(self, provider: str) -> None:
-        self.provider = provider
-        super().__init__(f"{provider} returned an unexpected response structure")
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +55,10 @@ class LLMProvider(ABC):
         )
         if not resp.ok:
             raise LLMAPIError(resp.status_code, type(self).__name__)
-        return resp.json()
+        try:
+            return resp.json()
+        except requests.exceptions.JSONDecodeError as exc:
+            raise LLMParseError(type(self).__name__) from exc
 
     def _extract(self, data: dict, *keys: str | int) -> str:
         """Traverse nested dict/list by keys, raise LLMParseError on miss."""
@@ -85,9 +66,21 @@ class LLMProvider(ABC):
         for key in keys:
             try:
                 current = current[key]
-            except (KeyError, IndexError, TypeError):
-                raise LLMParseError(type(self).__name__) from None
+            except (KeyError, IndexError, TypeError) as exc:
+                log.warning(
+                    "%s: parse error at key %r: %s. Top-level keys: %s",
+                    type(self).__name__,
+                    key,
+                    exc,
+                    list(data.keys()) if isinstance(data, dict) else type(data).__name__,
+                )
+                raise LLMParseError(type(self).__name__) from exc
         if not isinstance(current, str):
+            log.debug(
+                "%s: expected str at end of path, got %s",
+                type(self).__name__,
+                type(current).__name__,
+            )
             raise LLMParseError(type(self).__name__)
         return current
 
@@ -116,7 +109,7 @@ class GroqProvider(LLMProvider):
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "max_tokens": 2000,
+                "max_tokens": 3000,
                 "temperature": 0.3,
             },
         )
@@ -143,7 +136,7 @@ class GeminiProvider(LLMProvider):
                 },
                 "contents": [{"parts": [{"text": user}]}],
                 "generationConfig": {
-                    "maxOutputTokens": 2000,
+                    "maxOutputTokens": 3000,
                     "temperature": 0.3,
                 },
             },
@@ -175,7 +168,7 @@ class AnthropicProvider(LLMProvider):
             },
             payload={
                 "model": self.model,
-                "max_tokens": 2000,
+                "max_tokens": 3000,
                 "system": system,
                 "messages": [{"role": "user", "content": user}],
             },
@@ -202,7 +195,7 @@ class OpenAIProvider(LLMProvider):
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "max_tokens": 2000,
+                "max_tokens": 3000,
                 "temperature": 0.3,
             },
         )
@@ -236,20 +229,26 @@ def call_llm_with_retry(
 ) -> str:
     """Call the LLM provider with exponential backoff retry."""
     last_error: Exception | None = None
-    for attempt in range(1, LLM_MAX_RETRIES + 1):
+    for attempt in range(1, LLM_MAX_ATTEMPTS + 1):
         try:
             return provider.call(system=system, user=user)
         except (requests.RequestException, LLMAPIError, LLMParseError) as exc:
             last_error = exc
-            if attempt < LLM_MAX_RETRIES:
+            if attempt < LLM_MAX_ATTEMPTS:
                 delay = LLM_RETRY_BASE_DELAY * attempt
                 log.warning(
                     "LLM call failed (attempt %d/%d): %s — retrying in %ds",
                     attempt,
-                    LLM_MAX_RETRIES,
+                    LLM_MAX_ATTEMPTS,
                     exc,
                     delay,
                 )
                 time.sleep(delay)
 
-    raise ProviderError(f"LLM call failed after {LLM_MAX_RETRIES} attempts: {last_error}")
+    log.error(
+        "LLM call failed after %d attempts. Last error (%s): %s",
+        LLM_MAX_ATTEMPTS,
+        type(last_error).__name__,
+        last_error,
+    )
+    raise ProviderError(f"LLM call failed after {LLM_MAX_ATTEMPTS} attempts: {last_error}")

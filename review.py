@@ -9,7 +9,7 @@ from reviewer.config import Config
 from reviewer.exceptions import ReviewerError
 from reviewer.filters import filter_pr_files
 from reviewer.github_client import GitHubClient, post_or_update_comment
-from reviewer.prompt import SYSTEM_PROMPT, build_prompt
+from reviewer.prompt import build_prompt, get_system_prompt
 from reviewer.providers import call_llm_with_retry, get_provider
 
 logging.basicConfig(
@@ -73,9 +73,10 @@ def main() -> None:
         api_key=cfg.llm_api_key,
         model=cfg.llm_model,
     )
+    system_prompt = get_system_prompt(provider=cfg.llm_provider)
     review = call_llm_with_retry(
         provider,
-        system=SYSTEM_PROMPT,
+        system=system_prompt,
         user=prompt,
     )
 
@@ -91,5 +92,14 @@ if __name__ == "__main__":
     try:
         main()
     except ReviewerError as exc:
-        log.error("%s", exc.message)
+        log.error("[%s] %s", exc.code, exc.message)
         sys.exit(1)
+    except Exception as exc:
+        log.critical(
+            "Unexpected error — this is likely a bug. "
+            "Please report it at https://github.com/AndreaBonn/ai-pr-reviewer/issues. "
+            "Details: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+        sys.exit(2)

@@ -113,6 +113,31 @@ class TestFilterPrFiles:
         assert kept == []
         assert skipped == []
 
+    def test_skips_entry_without_filename(self) -> None:
+        files = [
+            {"patch": "+line", "additions": 1, "deletions": 0},
+            _make_raw_file(filename="src/main.py"),
+        ]
+
+        kept, _ = filter_pr_files(files, ignore_patterns=[], max_files=20)
+
+        assert len(kept) == 1
+        assert kept[0].filename == "src/main.py"
+
+    def test_skips_entry_with_empty_filename(self) -> None:
+        files = [
+            _make_raw_file(filename=""),
+            _make_raw_file(filename="src/main.py"),
+        ]
+
+        kept, _ = filter_pr_files(files, ignore_patterns=[], max_files=20)
+
+        assert len(kept) == 1
+        assert kept[0].filename == "src/main.py"
+
+    def test_root_file_matches_basename_pattern(self) -> None:
+        assert _matches_any("README.md", ["*.md"]) is True
+
 
 class TestMatchesAny:
     def test_matches_basename(self) -> None:

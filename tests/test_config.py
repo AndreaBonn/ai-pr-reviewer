@@ -119,6 +119,52 @@ class TestConfigFromEnv:
         assert cfg.repo == "my-org/my_repo.v2"
 
 
+class TestLlmModelValidation:
+    REQUIRED_ENV = TestConfigFromEnv.REQUIRED_ENV
+
+    def test_valid_model_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_MODEL", "llama-3.1-8b")
+
+        cfg = Config.from_env()
+
+        assert cfg.llm_model == "llama-3.1-8b"
+
+    def test_model_with_slashes_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_MODEL", "meta/llama-3.1-8b:latest")
+
+        cfg = Config.from_env()
+
+        assert cfg.llm_model == "meta/llama-3.1-8b:latest"
+
+    def test_empty_model_accepted(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+
+        cfg = Config.from_env()
+
+        assert cfg.llm_model == ""
+
+    def test_malicious_model_raises_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_MODEL", "../../../etc/passwd")
+
+        with pytest.raises(ConfigError, match="invalid characters"):
+            Config.from_env()
+
+    def test_model_with_newline_raises_config_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_MODEL", "model\nfake-log-line")
+
+        with pytest.raises(ConfigError, match="invalid characters"):
+            Config.from_env()
+
+
 class TestConfigRepr:
     """Config.__repr__() redacts sensitive fields."""
 
@@ -133,6 +179,50 @@ class TestConfigRepr:
         assert "ghp_test" not in text
         assert "<REDACTED>" in text
         assert "groq" in text
+
+
+class TestRequireEnvEdgeCases:
+    """Edge cases for _require_env validation."""
+
+    REQUIRED_ENV = TestConfigFromEnv.REQUIRED_ENV
+
+    def test_whitespace_only_env_raises_config_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("LLM_API_KEY", "   ")
+
+        with pytest.raises(ConfigError, match="LLM_API_KEY"):
+            Config.from_env()
+
+    def test_empty_string_env_raises_config_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("GITHUB_TOKEN", "")
+
+        with pytest.raises(ConfigError, match="GITHUB_TOKEN"):
+            Config.from_env()
+
+    def test_unsupported_language_logs_warning_and_falls_back(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+        monkeypatch.setenv("REVIEW_LANGUAGE", "klingon")
+
+        with caplog.at_level("WARNING"):
+            cfg = Config.from_env()
+
+        assert cfg.language == "english"
+        assert "klingon" in caplog.text
+        assert "Unsupported" in caplog.text
 
 
 class TestParseBoundedInt:

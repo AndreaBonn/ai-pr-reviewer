@@ -3,15 +3,23 @@ name = "ai-pr-reviewer"
 version = "1.0.0"
 description = "GitHub Action that reviews PRs using LLMs"
 requires-python = ">=3.11"
+license = "MIT"
+authors = [{ name = "Andrea Bonnici" }]
+keywords = ["github-action", "code-review", "llm", "ai", "pull-request"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "requests>=2.31.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0",
-    "ruff>=0.4.0",
-]
+[project.urls]
+Repository = "https://github.com/AndreaBonn/ai-pr-reviewer"
+Issues = "https://github.com/AndreaBonn/ai-pr-reviewer/issues"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -25,10 +33,15 @@ line-length = 100
 select = ["E", "F", "I", "N", "S", "W", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]
+"tests/**" = ["S101", "S106"]
 
 [dependency-groups]
 dev = [
+    "pytest>=8.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.4.0",
     "bandit>=1.9.4",
     "pip-audit>=2.10.0",
+    "vulture>=2.16",
+    "autoflake>=2.3.3",
 ]

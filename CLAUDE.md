@@ -28,7 +28,7 @@ tests/              → Mirrors reviewer/ 1:1
 ## Key Conventions
 
 - Python 3.11+, single production dependency (`requests`)
-- Custom exceptions (`ConfigError`, `ProviderError`, `GitHubAPIError`) — no `sys.exit()` in modules
+- Custom exceptions (`ConfigError`, `ProviderError`, `GitHubAPIError`, `LLMAPIError`, `LLMParseError`) in `exceptions.py` — no `sys.exit()` in modules
 - Strategy pattern for LLM providers — add new ones by subclassing `LLMProvider`
 - `Config` is a frozen dataclass with `__repr__` that redacts secrets
 - User input (`pr_title`, `pr_body`) is sanitized against prompt injection before building the prompt
@@ -38,5 +38,6 @@ tests/              → Mirrors reviewer/ 1:1
 
 1. Create a class in `reviewer/providers.py` extending `LLMProvider`
 2. Implement the `call(system, user) -> str` method
-3. Add entry to `_PROVIDERS` dict
-4. Add test in `tests/test_providers.py`
+3. Add entry to `_PROVIDERS` dict in `providers.py`
+4. Add suffix entry to `_SYSTEM_PROMPT_SUFFIX` dict in `prompt.py`
+5. Add test in `tests/test_providers.py`

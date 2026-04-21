@@ -7,13 +7,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from reviewer.exceptions import ProviderError
+from reviewer.exceptions import LLMAPIError, LLMParseError, ProviderError
 from reviewer.providers import (
     AnthropicProvider,
     GeminiProvider,
     GroqProvider,
-    LLMAPIError,
-    LLMParseError,
     OpenAIProvider,
     call_llm_with_retry,
     get_provider,
@@ -164,6 +162,120 @@ class TestAnthropicProviderCall:
         assert "anthropic-version" in headers
 
 
+class TestOpenAIProviderCall:
+    @patch("reviewer.providers.requests.post")
+    def test_happy_path_returns_content(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {
+                "choices": [{"message": {"content": "OpenAI review"}}],
+            },
+        )
+
+        provider = OpenAIProvider(api_key="sk-test")
+        result = provider.call(system="sys", user="usr")
+
+        assert result == "OpenAI review"
+        headers = mock_post.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer sk-test"
+
+    @patch("reviewer.providers.requests.post")
+    def test_http_error_raises_llm_api_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(ok=False, status_code=429)
+
+        provider = OpenAIProvider(api_key="sk-test")
+
+        with pytest.raises(LLMAPIError) as exc_info:
+            provider.call(system="sys", user="usr")
+
+        assert exc_info.value.status_code == 429
+
+
+class TestPostJsonNonJsonResponse:
+    @patch("reviewer.providers.requests.post")
+    def test_non_json_response_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_resp = MagicMock(ok=True)
+        mock_resp.json.side_effect = requests.exceptions.JSONDecodeError("", "", 0)
+        mock_post.return_value = mock_resp
+
+        provider = GroqProvider(api_key="k")
+
+        with pytest.raises(LLMParseError):
+            provider.call(system="s", user="u")
+
+
+class TestGeminiProviderParseError:
+    @patch("reviewer.providers.requests.post")
+    def test_empty_candidates_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"candidates": []},
+        )
+
+        with pytest.raises(LLMParseError):
+            GeminiProvider(api_key="k").call("s", "u")
+
+    @patch("reviewer.providers.requests.post")
+    def test_missing_text_key_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"candidates": [{"content": {"parts": [{"no_text": "x"}]}}]},
+        )
+
+        with pytest.raises(LLMParseError):
+            GeminiProvider(api_key="k").call("s", "u")
+
+
+class TestAnthropicProviderParseError:
+    @patch("reviewer.providers.requests.post")
+    def test_empty_content_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"content": []},
+        )
+
+        with pytest.raises(LLMParseError):
+            AnthropicProvider(api_key="k").call("s", "u")
+
+
+class TestOpenAIProviderParseError:
+    @patch("reviewer.providers.requests.post")
+    def test_empty_choices_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"choices": []},
+        )
+
+        with pytest.raises(LLMParseError):
+            OpenAIProvider(api_key="k").call("s", "u")
+
+
+class TestExtractNonStringValue:
+    @patch("reviewer.providers.requests.post")
+    def test_none_content_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"choices": [{"message": {"content": None}}]},
+        )
+
+        provider = GroqProvider(api_key="k")
+
+        with pytest.raises(LLMParseError):
+            provider.call(system="s", user="u")
+
+    @patch("reviewer.providers.requests.post")
+    def test_integer_content_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_post.return_value = MagicMock(
+            ok=True,
+            json=lambda: {"choices": [{"message": {"content": 42}}]},
+        )
+
+        provider = GroqProvider(api_key="k")
+
+        with pytest.raises(LLMParseError):
+            provider.call(system="s", user="u")
+
+
 class TestCallLlmWithRetry:
     def test_returns_on_first_success(self) -> None:
         provider = MagicMock()
@@ -201,6 +313,30 @@ class TestCallLlmWithRetry:
 
         with pytest.raises(ProviderError, match="failed after"):
             call_llm_with_retry(provider, system="s", user="u")
+
+    @patch("reviewer.providers.time.sleep")
+    def test_retry_delay_uses_correct_value(self, mock_sleep: MagicMock) -> None:
+        provider = MagicMock()
+        provider.call.side_effect = [
+            LLMAPIError(status_code=500, provider="T"),
+            "Review OK",
+        ]
+
+        call_llm_with_retry(provider, system="s", user="u")
+
+        mock_sleep.assert_called_once_with(5)
+
+    @patch("reviewer.providers.time.sleep")
+    def test_exhausts_exactly_max_attempts(self, mock_sleep: MagicMock) -> None:
+        from reviewer.providers import LLM_MAX_ATTEMPTS
+
+        provider = MagicMock()
+        provider.call.side_effect = LLMAPIError(status_code=503, provider="T")
+
+        with pytest.raises(ProviderError):
+            call_llm_with_retry(provider, system="s", user="u")
+
+        assert provider.call.call_count == LLM_MAX_ATTEMPTS
 
     @patch("reviewer.providers.time.sleep")
     def test_retries_on_parse_error(self, mock_sleep: MagicMock) -> None:

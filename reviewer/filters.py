@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import fnmatch
+import logging
 from dataclasses import dataclass
+
+log = logging.getLogger("ai-pr-reviewer")
 
 MAX_PATCH_LINES = 200
 MAX_LINE_LENGTH = 500
@@ -16,8 +19,6 @@ class PRFile:
     filename: str
     status: str
     patch: str
-    additions: int
-    deletions: int
     is_truncated: bool = False
     original_lines: int = 0
 
@@ -36,7 +37,10 @@ def filter_pr_files(
     """
     filtered: list[dict] = []
     for f in raw_files:
-        filename = f.get("filename", "")
+        filename = f.get("filename")
+        if not filename:
+            log.warning("Skipping malformed file entry with missing 'filename'")
+            continue
         patch = f.get("patch")
 
         if _matches_any(filename, ignore_patterns):
@@ -72,8 +76,6 @@ def filter_pr_files(
                 filename=f["filename"],
                 status=f.get("status", "modified"),
                 patch=patch,
-                additions=f.get("additions", 0),
-                deletions=f.get("deletions", 0),
                 is_truncated=is_truncated,
                 original_lines=total_lines,
             )

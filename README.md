@@ -27,10 +27,11 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: AndreaBonn/ai-pr-reviewer@main
+      - uses: AndreaBonn/ai-pr-reviewer@v1
         with:
           llm_provider: 'groq'
           llm_api_key: ${{ secrets.GROQ_API_KEY }}
@@ -49,8 +50,9 @@ The bot will automatically post a review comment. If you push new commits, the e
 |-------|----------|---------|-------------|
 | `llm_provider` | No | `groq` | LLM provider: `groq`, `gemini`, `anthropic`, `openai` |
 | `llm_api_key` | **Yes** | — | API key for the chosen provider |
+| `llm_model` | No | Provider default | Override default model (e.g. `llama-3.1-8b`, `gpt-4o`) |
 | `github_token` | **Yes** | — | GitHub token for posting comments |
-| `language` | No | `english` | Review language: `english` or `italian` |
+| `language` | No | `english` | Review language: `english`, `italian`, `french`, `spanish`, `german` |
 | `max_files` | No | `20` | Max files to review (avoids token limits) |
 | `ignore_patterns` | No | `*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock` | Comma-separated glob patterns to skip |
 
@@ -80,17 +82,13 @@ The generated review covers:
 
 | Section | What it checks |
 |---------|---------------|
-| **Summary** | Overall impression of the PR |
-| **What's Good** | Concrete positive highlights |
-| **Bug & Issues** | Bugs, logic errors, code smells |
-| **Security** | Secrets, injection, unsafe operations |
-| **Breaking Changes** | Modified signatures, APIs, schemas |
-| **Error Handling** | Silenced exceptions, missing fallback |
-| **Performance** | N+1 queries, blocking I/O, unnecessary loops |
-| **Complexity** | Long functions, deep nesting, duplication |
-| **New Dependencies** | New imports/packages and concerns |
-| **Testing** | Coverage of new/changed code |
-| **Documentation** | Missing docstrings, README updates |
+| **Summary** | Overall assessment of the PR |
+| **Bugs & Logic Issues** | Bugs, logic errors, unhandled edge cases, error handling gaps |
+| **Security** | Secrets, injection, unsafe deserialization, auth gaps |
+| **Performance & Scalability** | N+1 queries, blocking I/O, missing pagination |
+| **Breaking Changes** | Modified signatures, changed return types, schema changes |
+| **Testing Gaps** | Missing coverage for new/changed logic |
+| **What's Done Well** | Specific positive highlights |
 
 ---
 
@@ -128,14 +126,26 @@ When the action runs, a comment like this appears on your PR:
 
 ## Permissions
 
-The workflow needs write access to pull requests:
+The workflow needs read access to contents and write access to pull requests:
 
 ```yaml
 permissions:
+  contents: read
   pull-requests: write
 ```
 
 Or enable it globally: **Settings → Actions → General → Workflow permissions → Read and write permissions**.
+
+---
+
+## Privacy
+
+This action sends the following data to the configured LLM provider (Groq, Gemini, Anthropic, or OpenAI):
+
+- PR title, description, and file diffs
+- File names and change metadata
+
+No credentials or secrets are included in the prompt. However, if your PR description or code diffs contain sensitive information, that data will be transmitted to the third-party LLM API. For private repositories with sensitive data, review your provider's data retention policy.
 
 ---
 
