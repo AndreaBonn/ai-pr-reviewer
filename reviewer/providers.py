@@ -231,7 +231,9 @@ def call_llm_with_retry(
 ) -> str:
     """Call the LLM provider with exponential backoff retry."""
     last_error: Exception | None = None
+    attempts_made = 0
     for attempt in range(1, LLM_MAX_ATTEMPTS + 1):
+        attempts_made = attempt
         try:
             return provider.call(system=system, user=user)
         except (requests.RequestException, LLMAPIError, LLMParseError) as exc:
@@ -254,12 +256,12 @@ def call_llm_with_retry(
                 time.sleep(delay)
 
     log.error(
-        "LLM call failed after %d attempts. Last error (%s): %s",
-        LLM_MAX_ATTEMPTS,
+        "LLM call failed after %d attempt(s). Last error (%s): %s",
+        attempts_made,
         type(last_error).__name__,
         last_error,
     )
-    raise ProviderError(f"LLM call failed after {LLM_MAX_ATTEMPTS} attempts: {last_error}")
+    raise ProviderError(f"LLM call failed after {attempts_made} attempt(s): {last_error}")
 
 
 def call_llm_with_fallback(

@@ -56,4 +56,4 @@ jobs:
           llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GROQ_API_KEY_2 }},${{ secrets.GEMINI_API_KEY }}'
           github_token: ${{ secrets.GITHUB_TOKEN }}
           language: 'italian'
-          max_files: '10'
+          max_files: '5'
