@@ -158,16 +158,22 @@ Or enable globally: **Settings → Actions → General → Workflow permissions 
 
 ## Privacy & Security
 
-This action sends PR titles, descriptions, and file diffs to the configured LLM provider. No credentials or secrets are included in the prompt. See [SECURITY.md](SECURITY.md) for full details on the security measures implemented.
+This action sends PR titles, descriptions, and file diffs to the configured LLM provider. No data is stored or collected by this action. No credentials or secrets are included in the prompt. Review your LLM provider's privacy policy for details on how they handle submitted data.
+
+See [SECURITY.md](SECURITY.md) for full details on the security measures implemented.
 
 ---
 
 ## Limitations
 
+- Reviews are AI-generated and may contain inaccuracies — always verify suggestions before applying
+- This action performs static analysis only — it does not execute code or run tests
 - Very large diffs (>100 files) are capped at `max_files` to avoid token limits
 - Individual file patches are truncated to 200 lines
-- AI-generated reviews do not replace human code review
+- Quality of reviews depends on the chosen LLM provider and model
 - Binary files are automatically skipped
+
+Found an issue? [Report it here](https://github.com/AndreaBonn/ai-pr-reviewer/issues).
 
 ---
 

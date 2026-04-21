@@ -159,16 +159,22 @@ Oppure abilita globalmente: **Settings → Actions → General → Workflow perm
 
 ## Privacy e Sicurezza
 
-Questa action invia titoli, descrizioni e diff delle PR al provider LLM configurato. Nessuna credenziale o secret viene inclusa nel prompt. Consulta [SECURITY.it.md](SECURITY.it.md) per tutti i dettagli sulle misure di sicurezza implementate.
+Questa action invia titoli, descrizioni e diff delle PR al provider LLM configurato. Nessun dato viene memorizzato o raccolto da questa action. Nessuna credenziale o secret viene inclusa nel prompt. Consulta la privacy policy del tuo provider LLM per dettagli su come gestisce i dati inviati.
+
+Consulta [SECURITY.it.md](SECURITY.it.md) per tutti i dettagli sulle misure di sicurezza implementate.
 
 ---
 
 ## Limitazioni
 
+- Le review sono generate dall'AI e possono contenere imprecisioni — verifica sempre i suggerimenti prima di applicarli
+- Questa action esegue solo analisi statica — non esegue codice e non lancia test
 - Diff molto grandi (>100 file) sono limitate a `max_files` per evitare limiti di token
 - Le patch dei singoli file sono troncate a 200 righe
-- Le review generate dall'AI non sostituiscono la code review umana
+- La qualità delle review dipende dal provider LLM e dal modello scelto
 - I file binari vengono automaticamente ignorati
+
+Hai trovato un problema? [Segnalalo qui](https://github.com/AndreaBonn/ai-pr-reviewer/issues).
 
 ---
 
