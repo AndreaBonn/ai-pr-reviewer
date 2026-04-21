@@ -1,8 +1,8 @@
-# 🤖 AI PR Reviewer
+# AI PR Reviewer
 
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Action-AI%20PR%20Review-purple?logo=github)](https://github.com/AndreaBonn/ai-pr-reviewer)
 
-A **GitHub Action** that automatically reviews Pull Requests using an LLM and posts a structured code review as a PR comment. Supports **Groq**, **Gemini**, **Anthropic (Claude)** and **OpenAI**.
+A GitHub Action that reviews Pull Requests using an LLM and posts a structured code review as a PR comment. Supports Groq, Gemini, Anthropic (Claude) and OpenAI.
 
 ---
 
@@ -40,7 +40,7 @@ jobs:
 
 ### 3. Open a Pull Request
 
-The bot will automatically post a review comment. If you push new commits, the existing comment is updated (not duplicated).
+The action posts a review comment on the PR. Pushing new commits updates the existing comment instead of creating a duplicate.
 
 ---
 
@@ -62,10 +62,10 @@ The bot will automatically post a review comment. If you push new commits, the e
 
 | Provider | Cost | Default Model | Speed | Quality |
 |----------|------|---------------|-------|---------|
-| **Groq** | Free | `llama-3.3-70b-versatile` | ⚡⚡⚡ | ★★★★ |
-| **Gemini** | Free | `gemini-2.0-flash` | ⚡⚡ | ★★★★ |
-| **Anthropic** | Paid | `claude-sonnet-4-5` | ⚡⚡ | ★★★★★ |
-| **OpenAI** | Paid | `gpt-4o-mini` | ⚡⚡ | ★★★★ |
+| Groq | Free | `llama-3.3-70b-versatile` | Fast | Good |
+| Gemini | Free | `gemini-2.0-flash` | Medium | Good |
+| Anthropic | Paid | `claude-sonnet-4-5` | Medium | Best |
+| OpenAI | Paid | `gpt-4o-mini` | Medium | Good |
 
 ### Getting API Keys
 
@@ -96,15 +96,15 @@ The generated review covers:
 
 When the action runs, a comment like this appears on your PR:
 
-> ## 🤖 AI Code Review
+> ## AI Code Review
 >
-> ### 📋 Summary
-> This PR adds a new `parse_config()` function to handle YAML configuration loading. The approach is clean, but error handling needs attention.
+> ### Summary
+> This PR adds a `parse_config()` function for YAML configuration loading. Error handling needs attention.
 >
-> ### 🐛 Bug & Issues
+> ### Bugs & Logic Issues
 > **`config/parser.py` line 42:** `parse_date()` doesn't handle empty strings — will raise `ValueError` at runtime.
 >
-> ### 🔒 Security
+> ### Security
 > **`config/parser.py` line 15:** API key logged via `print(config)` on line 31. Remove or redact sensitive fields.
 >
 > *...and more sections...*

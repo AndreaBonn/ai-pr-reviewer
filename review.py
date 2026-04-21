@@ -46,9 +46,7 @@ def main() -> None:
             github,
             pr_number=cfg.pr_number,
             review_body=(
-                "## 🤖 AI Code Review\n\n"
-                "Nothing to review — no reviewable file changes "
-                "detected in this PR."
+                "## AI Code Review\n\nNothing to review — no reviewable file changes in this PR."
             ),
         )
         return
