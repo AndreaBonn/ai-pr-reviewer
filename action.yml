@@ -60,5 +60,5 @@ runs:
       run: python ${{ github.action_path }}/review.py
 
 branding:
-  icon: 'code'
-  color: 'purple'
+  icon: 'eye'
+  color: 'blue'
