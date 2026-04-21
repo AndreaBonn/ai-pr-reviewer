@@ -48,8 +48,8 @@ The action posts a review comment on the PR. Pushing new commits updates the exi
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `llm_provider` | No | `groq` | LLM provider: `groq`, `gemini`, `anthropic`, `openai` |
-| `llm_api_key` | **Yes** | — | API key for the chosen provider |
+| `llm_provider` | No | `groq` | LLM provider(s), comma-separated for fallback (e.g. `groq,gemini`) |
+| `llm_api_key` | **Yes** | — | API key(s), comma-separated, one per provider entry |
 | `llm_model` | No | Provider default | Override default model (e.g. `llama-3.1-8b`, `gpt-4o`) |
 | `github_token` | **Yes** | — | GitHub token for posting comments |
 | `language` | No | `english` | Review language: `english`, `italian`, `french`, `spanish`, `german` |
@@ -66,6 +66,27 @@ The action posts a review comment on the PR. Pushing new commits updates the exi
 | Gemini | Free | `gemini-2.0-flash` | Medium | Good |
 | Anthropic | Paid | `claude-sonnet-4-5` | Medium | Best |
 | OpenAI | Paid | `gpt-4o-mini` | Medium | Good |
+
+### Provider Fallback
+
+If one provider fails (rate limit, downtime), the action automatically tries the next one. Configure multiple providers with comma-separated values:
+
+```yaml
+- uses: AndreaBonn/ai-pr-reviewer@v1
+  with:
+    llm_provider: 'groq,gemini'
+    llm_api_key: '${{ secrets.GROQ_API_KEY }},${{ secrets.GEMINI_API_KEY }}'
+    github_token: ${{ secrets.GITHUB_TOKEN }}
+```
+
+You can also use multiple keys for the same provider to work around per-key rate limits:
+
+```yaml
+llm_provider: 'groq,groq,gemini'
+llm_api_key: '${{ secrets.GROQ_KEY_1 }},${{ secrets.GROQ_KEY_2 }},${{ secrets.GEMINI_API_KEY }}'
+```
+
+The `llm_model` override applies only to the first provider. Fallback providers use their default model.
 
 ### Getting API Keys
 

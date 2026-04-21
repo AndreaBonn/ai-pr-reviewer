@@ -30,8 +30,8 @@ MAX_FILES_UPPER_BOUND = 100
 class Config:
     """Immutable runtime configuration."""
 
-    llm_provider: str
-    llm_api_key: str
+    llm_providers: list[str]
+    llm_api_keys: list[str]
     llm_model: str
     github_token: str
     language: str
@@ -44,10 +44,11 @@ class Config:
 
     def __repr__(self) -> str:
         return (
-            f"Config(provider={self.llm_provider!r}, repo={self.repo!r}, "
+            f"Config(providers={self.llm_providers!r}, repo={self.repo!r}, "
             f"pr={self.pr_number}, language={self.language!r}, "
             f"max_files={self.max_files!r}, "
-            f"llm_api_key=<REDACTED>, github_token=<REDACTED>)"
+            f"api_keys=<{len(self.llm_api_keys)} REDACTED>, "
+            f"github_token=<REDACTED>)"
         )
 
     @classmethod
@@ -69,9 +70,17 @@ class Config:
             upper=MAX_FILES_UPPER_BOUND,
         )
 
+        providers = _parse_csv(_require_env("LLM_PROVIDER"), normalize=True)
+        api_keys = _parse_csv(_require_env("LLM_API_KEY"))
+        if len(providers) != len(api_keys):
+            raise ConfigError(
+                f"LLM_PROVIDER has {len(providers)} entries but LLM_API_KEY "
+                f"has {len(api_keys)}. Each provider needs a corresponding API key."
+            )
+
         return cls(
-            llm_provider=_require_env("LLM_PROVIDER").lower().strip(),
-            llm_api_key=_require_env("LLM_API_KEY"),
+            llm_providers=providers,
+            llm_api_keys=api_keys,
             llm_model=_validate_optional_model(os.environ.get("LLM_MODEL", "").strip()),
             github_token=_require_env("GITHUB_TOKEN"),
             language=language,
@@ -82,6 +91,14 @@ class Config:
             pr_title=os.environ.get("PR_TITLE", ""),
             pr_body=os.environ.get("PR_BODY", ""),
         )
+
+
+def _parse_csv(raw: str, *, normalize: bool = False) -> list[str]:
+    """Split a comma-separated string into a list of non-empty values."""
+    parts = [p.strip() for p in raw.split(",") if p.strip()]
+    if normalize:
+        parts = [p.lower() for p in parts]
+    return parts
 
 
 def _require_env(name: str) -> str:

@@ -253,3 +253,38 @@ def call_llm_with_retry(
         last_error,
     )
     raise ProviderError(f"LLM call failed after {LLM_MAX_ATTEMPTS} attempts: {last_error}")
+
+
+def call_llm_with_fallback(
+    provider_chain: list[tuple[LLMProvider, str]],
+    user: str,
+) -> str:
+    """Try each (provider, system_prompt) pair in order until one succeeds.
+
+    Falls back to the next provider when the current one fails after retries.
+    With a single provider, behaves identically to ``call_llm_with_retry``.
+    """
+    if not provider_chain:
+        raise ProviderError("No LLM providers configured")
+
+    if len(provider_chain) == 1:
+        provider, system = provider_chain[0]
+        return call_llm_with_retry(provider, system=system, user=user)
+
+    errors: list[str] = []
+    for i, (provider, system) in enumerate(provider_chain):
+        provider_label = f"{type(provider).__name__}[{i + 1}/{len(provider_chain)}]"
+        try:
+            return call_llm_with_retry(provider, system=system, user=user)
+        except ProviderError as exc:
+            errors.append(f"{provider_label}: {exc}")
+            remaining = len(provider_chain) - i - 1
+            if remaining > 0:
+                log.warning(
+                    "%s failed: %s — %d fallback(s) remaining",
+                    provider_label,
+                    exc,
+                    remaining,
+                )
+
+    raise ProviderError(f"All {len(provider_chain)} provider(s) failed. {'; '.join(errors)}")

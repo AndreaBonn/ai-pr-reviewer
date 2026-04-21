@@ -4,11 +4,11 @@ author: 'AndreaBonn'
 
 inputs:
   llm_provider:
-    description: 'LLM provider to use: "groq", "gemini", "anthropic" or "openai"'
+    description: 'LLM provider(s), comma-separated for fallback: "groq", "groq,gemini", "groq,groq,gemini"'
     required: false
     default: 'groq'
   llm_api_key:
-    description: 'API key for the LLM provider'
+    description: 'API key(s), comma-separated, one per provider entry'
     required: true
   llm_model:
     description: 'Override the default model for the chosen provider (optional)'

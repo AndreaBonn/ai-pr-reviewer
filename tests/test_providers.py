@@ -13,6 +13,7 @@ from reviewer.providers import (
     GeminiProvider,
     GroqProvider,
     OpenAIProvider,
+    call_llm_with_fallback,
     call_llm_with_retry,
     get_provider,
 )
@@ -399,3 +400,90 @@ class TestCallLlmWithRetry:
         result = call_llm_with_retry(provider, system="s", user="u")
 
         assert result == "Review OK"
+
+
+class TestCallLlmWithFallback:
+    def test_single_provider_succeeds(self) -> None:
+        provider = MagicMock()
+        provider.call.return_value = "Review"
+
+        result = call_llm_with_fallback([(provider, "sys")], user="u")
+
+        assert result == "Review"
+
+    def test_empty_chain_raises_provider_error(self) -> None:
+        with pytest.raises(ProviderError, match="No LLM providers"):
+            call_llm_with_fallback([], user="u")
+
+    @patch("reviewer.providers.time.sleep")
+    def test_falls_back_to_second_provider(self, mock_sleep: MagicMock) -> None:
+        failing = MagicMock()
+        failing.call.side_effect = LLMAPIError(status_code=429, provider="Groq")
+
+        succeeding = MagicMock()
+        succeeding.call.return_value = "Fallback review"
+
+        result = call_llm_with_fallback(
+            [(failing, "sys1"), (succeeding, "sys2")],
+            user="u",
+        )
+
+        assert result == "Fallback review"
+        succeeding.call.assert_called_once_with(system="sys2", user="u")
+
+    @patch("reviewer.providers.time.sleep")
+    def test_all_providers_fail_raises_provider_error(self, mock_sleep: MagicMock) -> None:
+        p1 = MagicMock()
+        p1.call.side_effect = LLMAPIError(status_code=429, provider="P1")
+        p2 = MagicMock()
+        p2.call.side_effect = LLMAPIError(status_code=500, provider="P2")
+
+        with pytest.raises(ProviderError, match="All 2 provider"):
+            call_llm_with_fallback(
+                [(p1, "s1"), (p2, "s2")],
+                user="u",
+            )
+
+    def test_first_provider_succeeds_skips_second(self) -> None:
+        p1 = MagicMock()
+        p1.call.return_value = "First"
+        p2 = MagicMock()
+
+        result = call_llm_with_fallback(
+            [(p1, "s1"), (p2, "s2")],
+            user="u",
+        )
+
+        assert result == "First"
+        p2.call.assert_not_called()
+
+    @patch("reviewer.providers.time.sleep")
+    def test_uses_correct_system_prompt_per_provider(self, mock_sleep: MagicMock) -> None:
+        p1 = MagicMock()
+        p1.call.side_effect = LLMAPIError(status_code=429, provider="P1")
+        p2 = MagicMock()
+        p2.call.return_value = "OK"
+
+        call_llm_with_fallback(
+            [(p1, "groq-prompt"), (p2, "gemini-prompt")],
+            user="u",
+        )
+
+        p1.call.assert_called_with(system="groq-prompt", user="u")
+        p2.call.assert_called_with(system="gemini-prompt", user="u")
+
+    @patch("reviewer.providers.time.sleep")
+    def test_three_providers_third_succeeds(self, mock_sleep: MagicMock) -> None:
+        p1 = MagicMock()
+        p1.call.side_effect = LLMAPIError(status_code=429, provider="P1")
+        p2 = MagicMock()
+        p2.call.side_effect = LLMAPIError(status_code=500, provider="P2")
+        p3 = MagicMock()
+        p3.call.return_value = "Third wins"
+
+        result = call_llm_with_fallback(
+            [(p1, "s1"), (p2, "s2"), (p3, "s3")],
+            user="u",
+        )
+
+        assert result == "Third wins"
