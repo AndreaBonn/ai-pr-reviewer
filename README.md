@@ -117,18 +117,7 @@ The generated review covers:
 
 When the action runs, a comment like this appears on your PR:
 
-> ## AI Code Review
->
-> ### Summary
-> This PR adds a `parse_config()` function for YAML configuration loading. Error handling needs attention.
->
-> ### Bugs & Logic Issues
-> **`config/parser.py` line 42:** `parse_date()` doesn't handle empty strings — will raise `ValueError` at runtime.
->
-> ### Security
-> **`config/parser.py` line 15:** API key logged via `print(config)` on line 31. Remove or redact sensitive fields.
->
-> *...and more sections...*
+![Review example](assets/review-example.png)
 
 ---
 

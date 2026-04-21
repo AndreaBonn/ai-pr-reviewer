@@ -55,4 +55,4 @@ jobs:
           llm_provider: 'groq'
           llm_api_key: ${{ secrets.GROQ_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          language: 'english'
+          language: 'italian'
