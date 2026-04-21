@@ -1,4 +1,4 @@
-name: 'AI PR Reviewer'
+name: 'AI PR Reviewer by Bonn'
 description: 'Automatically reviews Pull Requests using an LLM (Groq, Gemini, Anthropic or OpenAI)'
 author: 'AndreaBonn'
 
