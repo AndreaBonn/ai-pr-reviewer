@@ -4,7 +4,7 @@ version = "1.0.0"
 description = "GitHub Action that reviews PRs using LLMs"
 requires-python = ">=3.11"
 license = "Apache-2.0"
-authors = [{ name = "Andrea Bonnici" }]
+authors = [{ name = "Andrea Bonacci" }]
 keywords = ["github-action", "code-review", "llm", "ai", "pull-request"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
