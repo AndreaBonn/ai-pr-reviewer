@@ -14,6 +14,7 @@ log = logging.getLogger("ai-pr-reviewer")
 
 LLM_MAX_ATTEMPTS = 3
 LLM_RETRY_BASE_DELAY = 2
+_NON_RETRYABLE_STATUS_CODES = frozenset({401, 403, 413})
 
 
 # ---------------------------------------------------------------------------
@@ -235,6 +236,12 @@ def call_llm_with_retry(
             return provider.call(system=system, user=user)
         except (requests.RequestException, LLMAPIError, LLMParseError) as exc:
             last_error = exc
+            if isinstance(exc, LLMAPIError) and exc.status_code in _NON_RETRYABLE_STATUS_CODES:
+                log.error(
+                    "LLM call failed with non-retryable HTTP %d — skipping retries",
+                    exc.status_code,
+                )
+                break
             if attempt < LLM_MAX_ATTEMPTS:
                 delay = LLM_RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 log.warning(

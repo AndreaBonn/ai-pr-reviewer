@@ -401,6 +401,28 @@ class TestCallLlmWithRetry:
 
         assert result == "Review OK"
 
+    @patch("reviewer.providers.time.sleep")
+    def test_no_retry_on_413_payload_too_large(self, mock_sleep: MagicMock) -> None:
+        provider = MagicMock()
+        provider.call.side_effect = LLMAPIError(status_code=413, provider="T")
+
+        with pytest.raises(ProviderError):
+            call_llm_with_retry(provider, system="s", user="u")
+
+        assert provider.call.call_count == 1
+        mock_sleep.assert_not_called()
+
+    @patch("reviewer.providers.time.sleep")
+    def test_no_retry_on_401_unauthorized(self, mock_sleep: MagicMock) -> None:
+        provider = MagicMock()
+        provider.call.side_effect = LLMAPIError(status_code=401, provider="T")
+
+        with pytest.raises(ProviderError):
+            call_llm_with_retry(provider, system="s", user="u")
+
+        assert provider.call.call_count == 1
+        mock_sleep.assert_not_called()
+
 
 class TestCallLlmWithFallback:
     def test_single_provider_succeeds(self) -> None:
