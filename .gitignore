@@ -20,3 +20,5 @@ node_modules/
 *.dylib
 .DS_Store
 Thumbs.db
+docs/
+CLAUDE.md
