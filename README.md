@@ -1,7 +1,7 @@
 # AI PR Reviewer
 
 [![GitHub Actions](https://img.shields.io/badge/GitHub%20Action-AI%20PR%20Review-purple?logo=github)](https://github.com/AndreaBonn/ai-pr-reviewer)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 [Italiano](README.it.md) | **English**
 
@@ -171,6 +171,10 @@ This action sends PR titles, descriptions, and file diffs to the configured LLM 
 
 ---
 
+## Support
+
+If this action is useful to you, consider giving it a [star on GitHub](https://github.com/AndreaBonn/ai-pr-reviewer).
+
 ## License
 
-MIT
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
