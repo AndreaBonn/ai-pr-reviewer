@@ -29,7 +29,7 @@ class TestConfigFromEnv:
         assert cfg.llm_model == ""
         assert cfg.language == "english"
         assert cfg.max_files == 20
-        assert cfg.pr_number == "42"
+        assert cfg.pr_number == 42
         assert cfg.pr_title == ""
         assert cfg.pr_body == ""
 
@@ -38,9 +38,8 @@ class TestConfigFromEnv:
             monkeypatch.setenv(k, v)
         monkeypatch.setenv("REVIEW_LANGUAGE", "klingon")
 
-        cfg = Config.from_env()
-
-        assert cfg.language == "english"
+        with pytest.raises(ConfigError, match="Unsupported REVIEW_LANGUAGE"):
+            Config.from_env()
 
     def test_language_accepts_valid(self, monkeypatch: pytest.MonkeyPatch) -> None:
         for k, v in self.REQUIRED_ENV.items():
@@ -208,21 +207,18 @@ class TestRequireEnvEdgeCases:
         with pytest.raises(ConfigError, match="GITHUB_TOKEN"):
             Config.from_env()
 
-    def test_unsupported_language_logs_warning_and_falls_back(
+    def test_unsupported_language_raises_config_error_with_supported_list(
         self,
         monkeypatch: pytest.MonkeyPatch,
-        caplog: pytest.LogCaptureFixture,
     ) -> None:
         for k, v in self.REQUIRED_ENV.items():
             monkeypatch.setenv(k, v)
         monkeypatch.setenv("REVIEW_LANGUAGE", "klingon")
 
-        with caplog.at_level("WARNING"):
-            cfg = Config.from_env()
+        with pytest.raises(ConfigError, match="klingon") as exc_info:
+            Config.from_env()
 
-        assert cfg.language == "english"
-        assert "klingon" in caplog.text
-        assert "Unsupported" in caplog.text
+        assert "english" in str(exc_info.value)
 
 
 class TestParseBoundedInt:
@@ -234,6 +230,9 @@ class TestParseBoundedInt:
 
     def test_clamped_to_minimum_one(self) -> None:
         assert _parse_bounded_int("-5", label="X", upper=50) == 1
+
+    def test_zero_clamped_to_minimum_one(self) -> None:
+        assert _parse_bounded_int("0", label="X", upper=50) == 1
 
     def test_non_integer_raises_config_error(self) -> None:
         with pytest.raises(ConfigError, match="must be an integer"):

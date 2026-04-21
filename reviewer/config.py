@@ -37,7 +37,7 @@ class Config:
     language: str
     max_files: int
     ignore_patterns: list[str]
-    pr_number: str
+    pr_number: int
     repo: str
     pr_title: str
     pr_body: str
@@ -45,7 +45,7 @@ class Config:
     def __repr__(self) -> str:
         return (
             f"Config(provider={self.llm_provider!r}, repo={self.repo!r}, "
-            f"pr={self.pr_number!r}, language={self.language!r}, "
+            f"pr={self.pr_number}, language={self.language!r}, "
             f"max_files={self.max_files!r}, "
             f"llm_api_key=<REDACTED>, github_token=<REDACTED>)"
         )
@@ -57,14 +57,11 @@ class Config:
 
         raw_lang = os.environ.get("REVIEW_LANGUAGE", "english").lower().strip()
         if raw_lang not in SUPPORTED_LANGUAGES:
-            log.warning(
-                "Unsupported REVIEW_LANGUAGE=%r — falling back to 'english'. Supported: %s",
-                raw_lang,
-                ", ".join(sorted(SUPPORTED_LANGUAGES)),
+            raise ConfigError(
+                f"Unsupported REVIEW_LANGUAGE={raw_lang!r}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_LANGUAGES))}"
             )
-            language = "english"
-        else:
-            language = raw_lang
+        language = raw_lang
 
         max_files = _parse_bounded_int(
             os.environ.get("MAX_FILES", "20"),
@@ -94,11 +91,11 @@ def _require_env(name: str) -> str:
     return value
 
 
-def _require_int_env(name: str) -> str:
+def _require_int_env(name: str) -> int:
     value = _require_env(name)
     if not value.isdigit():
         raise ConfigError(f"Environment variable {name} must be a positive integer, got: {value!r}")
-    return value
+    return int(value)
 
 
 def _require_repo_env(name: str) -> str:

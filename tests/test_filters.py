@@ -135,6 +135,13 @@ class TestFilterPrFiles:
         assert len(kept) == 1
         assert kept[0].filename == "src/main.py"
 
+    def test_missing_status_defaults_to_modified(self) -> None:
+        files = [{"filename": "a.py", "patch": "+x", "additions": 1, "deletions": 0}]
+
+        kept, _ = filter_pr_files(files, ignore_patterns=[], max_files=20)
+
+        assert kept[0].status == "modified"
+
     def test_root_file_matches_basename_pattern(self) -> None:
         assert _matches_any("README.md", ["*.md"]) is True
 

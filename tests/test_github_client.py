@@ -25,7 +25,7 @@ class TestFindExistingBotComment:
             {"id": 42, "body": f"{BOT_COMMENT_MARKER}\nReview here"},
         ]
 
-        result = find_existing_bot_comment(github, pr_number="10")
+        result = find_existing_bot_comment(github, pr_number=10)
 
         assert result == 42
 
@@ -35,7 +35,7 @@ class TestFindExistingBotComment:
             {"id": 1, "body": "just a comment"},
         ]
 
-        result = find_existing_bot_comment(github, pr_number="10")
+        result = find_existing_bot_comment(github, pr_number=10)
 
         assert result is None
 
@@ -46,7 +46,7 @@ class TestFindExistingBotComment:
             {"id": 77, "body": f"{BOT_COMMENT_MARKER}\nSecond review"},
         ]
 
-        result = find_existing_bot_comment(github, pr_number="10")
+        result = find_existing_bot_comment(github, pr_number=10)
 
         assert result == 77
 
@@ -56,7 +56,7 @@ class TestFindExistingBotComment:
             {"body": f"{BOT_COMMENT_MARKER}\nReview here"},
         ]
 
-        result = find_existing_bot_comment(github, pr_number="10")
+        result = find_existing_bot_comment(github, pr_number=10)
 
         assert result is None
 
@@ -64,7 +64,7 @@ class TestFindExistingBotComment:
         github = MagicMock(spec=GitHubClient)
         github.list_issue_comments.return_value = []
 
-        result = find_existing_bot_comment(github, pr_number="10")
+        result = find_existing_bot_comment(github, pr_number=10)
 
         assert result is None
 
@@ -74,7 +74,7 @@ class TestPostOrUpdateComment:
         github = MagicMock(spec=GitHubClient)
         github.list_issue_comments.return_value = []
 
-        post_or_update_comment(github, pr_number="10", review_body="Review")
+        post_or_update_comment(github, pr_number=10, review_body="Review")
 
         github.create_issue_comment.assert_called_once()
         body = github.create_issue_comment.call_args[1]["body"]
@@ -89,7 +89,7 @@ class TestPostOrUpdateComment:
 
         post_or_update_comment(
             github,
-            pr_number="10",
+            pr_number=10,
             review_body="New review",
         )
 
@@ -99,13 +99,22 @@ class TestPostOrUpdateComment:
         assert "New review" in call_kwargs["body"]
         github.create_issue_comment.assert_not_called()
 
+    def test_create_comment_marker_precedes_body(self) -> None:
+        github = MagicMock(spec=GitHubClient)
+        github.list_issue_comments.return_value = []
+
+        post_or_update_comment(github, pr_number=1, review_body="The review")
+
+        body = github.create_issue_comment.call_args[1]["body"]
+        assert body.startswith(BOT_COMMENT_MARKER)
+
     def test_update_preserves_bot_marker_in_body(self) -> None:
         github = MagicMock(spec=GitHubClient)
         github.list_issue_comments.return_value = [
             {"id": 99, "body": f"{BOT_COMMENT_MARKER}\nOld"},
         ]
 
-        post_or_update_comment(github, pr_number="10", review_body="New")
+        post_or_update_comment(github, pr_number=10, review_body="New")
 
         body = github.update_issue_comment.call_args[1]["body"]
         assert BOT_COMMENT_MARKER in body
@@ -141,6 +150,18 @@ class TestGitHubClientInit:
         headers = client._session.headers
         assert headers["Authorization"] == "Bearer ghp_test123"
         assert headers["Accept"] == "application/vnd.github+json"
+
+
+class TestRequestDefaults:
+    @patch.object(requests.Session, "request")
+    def test_request_uses_default_timeout(self, mock_request: MagicMock) -> None:
+        mock_request.return_value = _make_response(json_data=[])
+
+        client = GitHubClient(token="t", repo="o/r")
+        client.get_pr_files(1)
+
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs.get("timeout") == 30
 
 
 class TestPaginatedGet:
@@ -272,6 +293,22 @@ class TestRaiseForStatus:
         GitHubClient._raise_for_status(resp, context="test_op")
 
 
+class TestRaiseForStatusDetail:
+    def test_includes_github_error_message(self) -> None:
+        resp = _make_response(status_code=422)
+        resp.json.return_value = {"message": "Validation Failed"}
+
+        with pytest.raises(GitHubAPIError, match="Validation Failed"):
+            GitHubClient._raise_for_status(resp, context="test_op")
+
+    def test_handles_non_json_error_body(self) -> None:
+        resp = _make_response(status_code=500)
+        resp.json.side_effect = requests.exceptions.JSONDecodeError("", "", 0)
+
+        with pytest.raises(GitHubAPIError, match="HTTP 500"):
+            GitHubClient._raise_for_status(resp, context="test_op")
+
+
 class TestNetworkErrorWrapping:
     @patch.object(requests.Session, "request")
     def test_connection_error_raises_github_api_error(self, mock_request: MagicMock) -> None:
@@ -289,7 +326,7 @@ class TestNetworkErrorWrapping:
         client = GitHubClient(token="t", repo="o/r")
 
         with pytest.raises(GitHubAPIError, match="Network error"):
-            client.create_issue_comment(pr_number="42", body="test")
+            client.create_issue_comment(pr_number=42, body="test")
 
 
 class TestCreateAndUpdateComment:
@@ -298,7 +335,7 @@ class TestCreateAndUpdateComment:
         mock_request.return_value = _make_response(status_code=201)
 
         client = GitHubClient(token="t", repo="o/r")
-        client.create_issue_comment(pr_number="42", body="review text")
+        client.create_issue_comment(pr_number=42, body="review text")
 
         call_args = mock_request.call_args
         assert call_args[0][0] == "POST"
@@ -325,4 +362,4 @@ class TestCreateAndUpdateComment:
         client = GitHubClient(token="t", repo="o/r")
 
         with pytest.raises(GitHubAPIError, match="422"):
-            client.create_issue_comment(pr_number="42", body="test")
+            client.create_issue_comment(pr_number=42, body="test")

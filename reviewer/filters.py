@@ -71,10 +71,18 @@ def filter_pr_files(
         ]
         patch = "\n".join(trimmed)
 
+        status = f.get("status")
+        if status is None:
+            log.warning(
+                "File entry for %r missing 'status' field — defaulting to 'modified'.",
+                f["filename"],
+            )
+            status = "modified"
+
         kept.append(
             PRFile(
                 filename=f["filename"],
-                status=f.get("status", "modified"),
+                status=status,
                 patch=patch,
                 is_truncated=is_truncated,
                 original_lines=total_lines,

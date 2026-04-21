@@ -12,8 +12,8 @@ from reviewer.exceptions import LLMAPIError, LLMParseError, ProviderError
 
 log = logging.getLogger("ai-pr-reviewer")
 
-LLM_MAX_ATTEMPTS = 2
-LLM_RETRY_BASE_DELAY = 5
+LLM_MAX_ATTEMPTS = 3
+LLM_RETRY_BASE_DELAY = 2
 
 
 # ---------------------------------------------------------------------------
@@ -25,6 +25,7 @@ class LLMProvider(ABC):
     """Base class for LLM API providers."""
 
     MODEL: str = ""
+    MAX_TOKENS: int = 3000
 
     def __init__(self, api_key: str, model: str = "") -> None:
         self._api_key = api_key
@@ -57,7 +58,7 @@ class LLMProvider(ABC):
             raise LLMAPIError(resp.status_code, type(self).__name__)
         try:
             return resp.json()
-        except requests.exceptions.JSONDecodeError as exc:
+        except (requests.exceptions.JSONDecodeError, ValueError, UnicodeDecodeError) as exc:
             raise LLMParseError(type(self).__name__) from exc
 
     def _extract(self, data: dict, *keys: str | int) -> str:
@@ -76,7 +77,7 @@ class LLMProvider(ABC):
                 )
                 raise LLMParseError(type(self).__name__) from exc
         if not isinstance(current, str):
-            log.debug(
+            log.warning(
                 "%s: expected str at end of path, got %s",
                 type(self).__name__,
                 type(current).__name__,
@@ -109,7 +110,7 @@ class GroqProvider(LLMProvider):
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "max_tokens": 3000,
+                "max_tokens": self.MAX_TOKENS,
                 "temperature": 0.3,
             },
         )
@@ -136,7 +137,7 @@ class GeminiProvider(LLMProvider):
                 },
                 "contents": [{"parts": [{"text": user}]}],
                 "generationConfig": {
-                    "maxOutputTokens": 3000,
+                    "maxOutputTokens": self.MAX_TOKENS,
                     "temperature": 0.3,
                 },
             },
@@ -168,7 +169,7 @@ class AnthropicProvider(LLMProvider):
             },
             payload={
                 "model": self.model,
-                "max_tokens": 3000,
+                "max_tokens": self.MAX_TOKENS,
                 "system": system,
                 "messages": [{"role": "user", "content": user}],
             },
@@ -195,7 +196,7 @@ class OpenAIProvider(LLMProvider):
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                "max_tokens": 3000,
+                "max_tokens": self.MAX_TOKENS,
                 "temperature": 0.3,
             },
         )
@@ -235,7 +236,7 @@ def call_llm_with_retry(
         except (requests.RequestException, LLMAPIError, LLMParseError) as exc:
             last_error = exc
             if attempt < LLM_MAX_ATTEMPTS:
-                delay = LLM_RETRY_BASE_DELAY * attempt
+                delay = LLM_RETRY_BASE_DELAY * (2 ** (attempt - 1))
                 log.warning(
                     "LLM call failed (attempt %d/%d): %s — retrying in %ds",
                     attempt,

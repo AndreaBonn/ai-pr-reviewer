@@ -68,6 +68,28 @@ class TestMain:
         body = mock_post_comment.call_args[1]["review_body"]
         assert "Nothing to review" in body
 
+    @patch("review.post_or_update_comment")
+    @patch("review.GitHubClient")
+    def test_all_binary_files_posts_nothing_to_review(
+        self,
+        mock_github_cls: MagicMock,
+        mock_post_comment: MagicMock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        for k, v in self.REQUIRED_ENV.items():
+            monkeypatch.setenv(k, v)
+
+        mock_github = mock_github_cls.return_value
+        mock_github.get_pr_files.return_value = [
+            {"filename": "image.png", "status": "added", "additions": 0, "deletions": 0},
+        ]
+
+        main()
+
+        mock_post_comment.assert_called_once()
+        body = mock_post_comment.call_args[1]["review_body"]
+        assert "Nothing to review" in body
+
     def test_missing_env_raises_config_error(
         self,
         monkeypatch: pytest.MonkeyPatch,

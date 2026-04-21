@@ -47,6 +47,10 @@ class TestGetProvider:
         provider = get_provider(name="groq", api_key="k")
         assert provider.model == "llama-3.3-70b-versatile"
 
+    def test_empty_model_override_falls_back_to_class_default(self) -> None:
+        provider = get_provider(name="groq", api_key="k", model="")
+        assert provider.model == GroqProvider.MODEL
+
 
 class TestLLMAPIError:
     def test_message_contains_status_and_provider(self) -> None:
@@ -204,6 +208,30 @@ class TestPostJsonNonJsonResponse:
             provider.call(system="s", user="u")
 
 
+class TestPostJsonUnicodeError:
+    @patch("reviewer.providers.requests.post")
+    def test_unicode_decode_error_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_resp = MagicMock(ok=True)
+        mock_resp.json.side_effect = UnicodeDecodeError("utf-8", b"", 0, 1, "invalid")
+        mock_post.return_value = mock_resp
+
+        provider = GroqProvider(api_key="k")
+
+        with pytest.raises(LLMParseError):
+            provider.call(system="s", user="u")
+
+    @patch("reviewer.providers.requests.post")
+    def test_value_error_raises_parse_error(self, mock_post: MagicMock) -> None:
+        mock_resp = MagicMock(ok=True)
+        mock_resp.json.side_effect = ValueError("No JSON object")
+        mock_post.return_value = mock_resp
+
+        provider = GroqProvider(api_key="k")
+
+        with pytest.raises(LLMParseError):
+            provider.call(system="s", user="u")
+
+
 class TestGeminiProviderParseError:
     @patch("reviewer.providers.requests.post")
     def test_empty_candidates_raises_parse_error(self, mock_post: MagicMock) -> None:
@@ -324,7 +352,7 @@ class TestCallLlmWithRetry:
 
         call_llm_with_retry(provider, system="s", user="u")
 
-        mock_sleep.assert_called_once_with(5)
+        mock_sleep.assert_called_once_with(2)
 
     @patch("reviewer.providers.time.sleep")
     def test_exhausts_exactly_max_attempts(self, mock_sleep: MagicMock) -> None:
@@ -337,6 +365,28 @@ class TestCallLlmWithRetry:
             call_llm_with_retry(provider, system="s", user="u")
 
         assert provider.call.call_count == LLM_MAX_ATTEMPTS
+
+    @patch("reviewer.providers.time.sleep")
+    def test_raises_provider_error_on_network_error(self, mock_sleep: MagicMock) -> None:
+        provider = MagicMock()
+        provider.call.side_effect = requests.ConnectionError("network down")
+
+        with pytest.raises(ProviderError, match="failed after"):
+            call_llm_with_retry(provider, system="s", user="u")
+
+    @patch("reviewer.providers.time.sleep")
+    def test_exponential_backoff_delays(self, mock_sleep: MagicMock) -> None:
+        provider = MagicMock()
+        provider.call.side_effect = [
+            LLMAPIError(status_code=500, provider="T"),
+            LLMAPIError(status_code=500, provider="T"),
+            "Review OK",
+        ]
+
+        call_llm_with_retry(provider, system="s", user="u")
+
+        delays = [c.args[0] for c in mock_sleep.call_args_list]
+        assert delays == [2, 4]
 
     @patch("reviewer.providers.time.sleep")
     def test_retries_on_parse_error(self, mock_sleep: MagicMock) -> None:

@@ -29,15 +29,15 @@ class GitHubClient:
         )
         self._repo = repo
 
-    def get_pr_files(self, pr_number: str) -> list[dict]:
+    def get_pr_files(self, pr_number: int) -> list[dict]:
         url = f"{GITHUB_API}/repos/{self._repo}/pulls/{pr_number}/files"
         return self._paginated_get(url)
 
-    def list_issue_comments(self, pr_number: str) -> list[dict]:
+    def list_issue_comments(self, pr_number: int) -> list[dict]:
         url = f"{GITHUB_API}/repos/{self._repo}/issues/{pr_number}/comments"
         return self._paginated_get(url)
 
-    def create_issue_comment(self, pr_number: str, body: str) -> None:
+    def create_issue_comment(self, pr_number: int, body: str) -> None:
         url = f"{GITHUB_API}/repos/{self._repo}/issues/{pr_number}/comments"
         resp = self._request("POST", url, json={"body": body})
         self._check_rate_limit(resp)
@@ -116,14 +116,21 @@ class GitHubClient:
         try:
             resp.raise_for_status()
         except requests.exceptions.HTTPError as exc:
+            detail = ""
+            try:
+                body = resp.json()
+                if isinstance(body, dict) and "message" in body:
+                    detail = f" — {body['message']}"
+            except Exception:  # noqa: BLE001, S110
+                pass
             raise GitHubAPIError(
-                f"GitHub API error during {context}: HTTP {resp.status_code}"
+                f"GitHub API error during {context}: HTTP {resp.status_code}{detail}"
             ) from exc
 
 
 def find_existing_bot_comment(
     github: GitHubClient,
-    pr_number: str,
+    pr_number: int,
 ) -> int | None:
     """Return the comment ID of a previous bot review, or None."""
     comments = github.list_issue_comments(pr_number)
@@ -140,7 +147,7 @@ def find_existing_bot_comment(
 
 def post_or_update_comment(
     github: GitHubClient,
-    pr_number: str,
+    pr_number: int,
     review_body: str,
 ) -> None:
     """Create or update the bot review comment on the PR."""

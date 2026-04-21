@@ -36,7 +36,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Tests with coverage
-        run: uv run pytest -v --tb=short --cov=reviewer --cov=review --cov-fail-under=90
+        run: uv run pytest -v --tb=short --cov=reviewer --cov=review --cov-fail-under=95
 
       - name: Security audit
         run: uv run pip-audit

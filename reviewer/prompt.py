@@ -67,7 +67,7 @@ _PROMPT_INJECTION_PATTERN = re.compile(
     r"|\[INST\]"
     r"|<<SYS>>"
     r"|</s><s>"
-    r"|Human:\s.*Assistant:"
+    r"|Human:\s.{0,200}Assistant:"
     r"|you must respond only"
     r")",
     re.IGNORECASE,
@@ -104,7 +104,8 @@ def build_prompt(
     sections.append("")
 
     if skipped:
-        skipped_list = ", ".join(skipped)
+        safe_skipped = [_PROMPT_INJECTION_PATTERN.sub("[REDACTED]", s) for s in skipped]
+        skipped_list = ", ".join(safe_skipped)
         sections.append(
             f"[Note: only {len(files)} of {total_files} changed files "
             f"are shown. Files ignored: {skipped_list}]"
@@ -113,7 +114,9 @@ def build_prompt(
 
     sections.append("Files changed:")
     for f in files:
-        sections.append(f"### {f.filename} ({f.status})")
+        safe_filename = _PROMPT_INJECTION_PATTERN.sub("[REDACTED]", f.filename)
+        safe_status = _PROMPT_INJECTION_PATTERN.sub("[REDACTED]", f.status)
+        sections.append(f"### {safe_filename} ({safe_status})")
         safe_patch = _PROMPT_INJECTION_PATTERN.sub("[REDACTED]", f.patch)
         sections.append(f"```diff\n{safe_patch}\n```")
         if f.is_truncated:
