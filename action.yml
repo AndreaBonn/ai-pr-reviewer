@@ -1,0 +1,64 @@
+name: 'AI PR Reviewer'
+description: 'Automatically reviews Pull Requests using an LLM (Groq, Gemini, Anthropic or OpenAI)'
+author: 'AndreaBonn'
+
+inputs:
+  llm_provider:
+    description: 'LLM provider to use: "groq", "gemini", "anthropic" or "openai"'
+    required: false
+    default: 'groq'
+  llm_api_key:
+    description: 'API key for the LLM provider'
+    required: true
+  llm_model:
+    description: 'Override the default model for the chosen provider (optional)'
+    required: false
+    default: ''
+  github_token:
+    description: 'GitHub token for posting comments'
+    required: true
+  language:
+    description: 'Language for the review output: "english", "italian", "french", "spanish" or "german"'
+    required: false
+    default: 'english'
+  max_files:
+    description: 'Maximum number of files to review (to avoid token limits)'
+    required: false
+    default: '20'
+  ignore_patterns:
+    description: 'Comma-separated glob patterns to ignore (e.g. "*.lock,*.min.js")'
+    required: false
+    default: '*.lock,*.min.js,*.min.css,package-lock.json,yarn.lock'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r ${{ github.action_path }}/requirements.txt
+
+    - name: Run AI Review
+      shell: bash
+      env:
+        LLM_PROVIDER: ${{ inputs.llm_provider }}
+        LLM_API_KEY: ${{ inputs.llm_api_key }}
+        LLM_MODEL: ${{ inputs.llm_model }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        REVIEW_LANGUAGE: ${{ inputs.language }}
+        MAX_FILES: ${{ inputs.max_files }}
+        IGNORE_PATTERNS: ${{ inputs.ignore_patterns }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        REPO_FULL_NAME: ${{ github.repository }}
+        PR_TITLE: ${{ github.event.pull_request.title }}
+        PR_BODY: ${{ github.event.pull_request.body }}
+      run: python ${{ github.action_path }}/review.py
+
+branding:
+  icon: 'code'
+  color: 'purple'
