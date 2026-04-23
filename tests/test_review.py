@@ -136,3 +136,42 @@ class TestMain:
 
         with pytest.raises(GitHubAPIError):
             main()
+
+
+class TestEntrypoint:
+    """Tests for the entrypoint() error handling wrapper."""
+
+    def test_reviewer_error_exits_with_code_1(self) -> None:
+        from review import entrypoint
+
+        with patch("review.main", side_effect=ProviderError("LLM down")):
+            with pytest.raises(SystemExit) as exc_info:
+                entrypoint()
+
+        assert exc_info.value.code == 1
+
+    def test_unexpected_error_exits_with_code_2(self) -> None:
+        from review import entrypoint
+
+        with patch("review.main", side_effect=RuntimeError("boom")):
+            with pytest.raises(SystemExit) as exc_info:
+                entrypoint()
+
+        assert exc_info.value.code == 2
+
+    def test_config_error_exits_with_code_1(self) -> None:
+        from review import entrypoint
+
+        with patch("review.main", side_effect=ConfigError("missing key")):
+            with pytest.raises(SystemExit) as exc_info:
+                entrypoint()
+
+        assert exc_info.value.code == 1
+
+    @patch("review.main")
+    def test_success_does_not_exit(self, mock_main: MagicMock) -> None:
+        from review import entrypoint
+
+        entrypoint()
+
+        mock_main.assert_called_once()

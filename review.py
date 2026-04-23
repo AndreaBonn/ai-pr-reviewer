@@ -83,7 +83,8 @@ def main() -> None:
     log.info("Review posted successfully.")
 
 
-if __name__ == "__main__":
+def entrypoint() -> None:
+    """Wrap main() with error handling for CLI usage."""
     try:
         main()
     except ReviewerError as exc:
@@ -98,3 +99,7 @@ if __name__ == "__main__":
             exc,
         )
         sys.exit(2)
+
+
+if __name__ == "__main__":
+    entrypoint()

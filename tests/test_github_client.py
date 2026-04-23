@@ -329,6 +329,30 @@ class TestNetworkErrorWrapping:
             client.create_issue_comment(pr_number=42, body="test")
 
 
+class TestListIssueComments:
+    @patch.object(GitHubClient, "_request")
+    def test_returns_paginated_comments(self, mock_request: MagicMock) -> None:
+        mock_request.return_value = _make_response(
+            json_data=[{"id": 1, "body": "c1"}, {"id": 2, "body": "c2"}],
+        )
+
+        client = GitHubClient(token="t", repo="o/r")
+        result = client.list_issue_comments(pr_number=42)
+
+        assert result == [{"id": 1, "body": "c1"}, {"id": 2, "body": "c2"}]
+        url = mock_request.call_args[0][1]
+        assert "/issues/42/comments" in url
+
+    @patch.object(GitHubClient, "_request")
+    def test_returns_empty_list_when_no_comments(self, mock_request: MagicMock) -> None:
+        mock_request.return_value = _make_response(json_data=[])
+
+        client = GitHubClient(token="t", repo="o/r")
+        result = client.list_issue_comments(pr_number=1)
+
+        assert result == []
+
+
 class TestCreateAndUpdateComment:
     @patch.object(GitHubClient, "_request")
     def test_create_comment_sends_post(self, mock_request: MagicMock) -> None:
