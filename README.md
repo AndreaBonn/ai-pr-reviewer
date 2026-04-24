@@ -4,6 +4,7 @@
 
 [![CI](https://github.com/AndreaBonn/ai-pr-reviewer/actions/workflows/test.yml/badge.svg)](https://github.com/AndreaBonn/ai-pr-reviewer/actions/workflows/test.yml)
 [![Tests](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/AndreaBonn/ai-pr-reviewer/main/badges/test-badge.json)](https://github.com/AndreaBonn/ai-pr-reviewer/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/AndreaBonn/ai-pr-reviewer/main/badges/coverage-badge.json)](https://github.com/AndreaBonn/ai-pr-reviewer/actions/workflows/test.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Security Policy](https://img.shields.io/badge/security-policy-blueviolet.svg)](SECURITY.md)

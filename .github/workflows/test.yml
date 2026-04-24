@@ -40,7 +40,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Tests with coverage
-        run: uv run pytest -v --tb=short --cov=reviewer --cov=review --cov-fail-under=95 --junitxml=test-results.xml
+        run: uv run pytest -v --tb=short --cov=reviewer --cov=review --cov-fail-under=95 --cov-report=json --junitxml=test-results.xml
 
       - name: Generate test badge
         if: always()
@@ -64,12 +64,31 @@ jobs:
               json.dump(badge, f)
           "
 
-      - name: Commit badge
+      - name: Generate coverage badge
+        if: always()
+        run: |
+          mkdir -p badges
+          python3 -c "
+          import json, os
+          cov_path = 'coverage.json'
+          if not os.path.exists(cov_path):
+              badge = {'schemaVersion': 1, 'label': 'coverage', 'message': 'N/A', 'color': 'lightgrey'}
+          else:
+              with open(cov_path) as f:
+                  data = json.load(f)
+              pct = float(data['totals']['percent_covered_display'])
+              color = 'brightgreen' if pct >= 90 else 'green' if pct >= 80 else 'yellow' if pct >= 60 else 'red'
+              badge = {'schemaVersion': 1, 'label': 'coverage', 'message': f'{pct}%', 'color': color}
+          with open('badges/coverage-badge.json', 'w') as f:
+              json.dump(badge, f)
+          "
+
+      - name: Commit badges
         if: always() && matrix.python-version == '3.12' && github.ref == 'refs/heads/main'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add badges/test-badge.json
+          git add badges/test-badge.json badges/coverage-badge.json
           git diff --cached --quiet || git commit -m "ci: update test badge [skip ci]"
           git push
 

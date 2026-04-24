@@ -14,6 +14,8 @@ build/
 .ruff_cache/
 .coverage
 htmlcov/
+coverage/
+coverage.json
 doc_progetto/
 node_modules/
 *.so
