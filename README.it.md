@@ -9,6 +9,43 @@ Una GitHub Action che analizza automaticamente le Pull Request tramite un LLM e 
 
 ---
 
+## Architettura
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+graph LR
+  gh_actions["GitHub Actions<br/>Evento PR"]
+  review["review.py<br/>Orchestratore"]
+  config["config.py<br/>Parsing Env"]
+  filters["filters.py<br/>Filtro File"]
+  prompt_mod["prompt.py<br/>Costruzione Prompt"]
+  gh_client["github_client.py<br/>Wrapper API"]
+  providers["providers.py<br/>Strategia LLM"]
+  gh_api[("GitHub API")]
+  llm_api["API LLM<br/>Groq / Gemini /<br/>Anthropic / OpenAI"]
+
+  gh_actions -->|"env vars"| review
+  review --> config
+  review --> gh_client
+  review --> filters
+  review --> prompt_mod
+  review --> providers
+  gh_client -->|"REST"| gh_api
+  providers -->|"HTTP"| llm_api
+
+  classDef core fill:#2563eb,stroke:#1d4ed8,color:#fff
+  classDef engine fill:#059669,stroke:#047857,color:#fff
+  classDef data fill:#d97706,stroke:#b45309,color:#fff
+  classDef ext fill:#6b7280,stroke:#4b5563,color:#fff
+
+  class review core
+  class config,filters,prompt_mod,providers engine
+  class gh_client data
+  class gh_actions,gh_api,llm_api ext
+```
+
+---
+
 ## Avvio Rapido
 
 ### 1. Aggiungi la API key come secret del repository
@@ -83,6 +120,48 @@ L'action pubblica un commento di review sulla PR. Pushando nuovi commit, il comm
 ## Fallback tra Provider
 
 Se un provider fallisce (rate limit, downtime), l'action prova automaticamente il successivo nella lista. Ogni provider ha il proprio ciclo di retry prima del fallback.
+
+```mermaid
+%%{init: {'theme': 'default'}}%%
+graph TD
+  start_node(["call_llm_with_fallback"])
+  pick_provider["Prossimo provider<br/>dalla catena"]
+  call_retry["call_llm_with_retry"]
+  attempt["Invio richiesta a LLM API"]
+  check_result{"Successo?"}
+  check_retryable{"Errore<br/>ritentabile?"}
+  backoff["Attesa 2s / 4s<br/>backoff esponenziale"]
+  check_attempts{"Tentativi<br/>&lt; 3?"}
+  more_providers{"Altri provider<br/>nella catena?"}
+  success_node(["Ritorna testo review"])
+  fail_node(["Lancia ProviderError"])
+  non_retryable["Non ritentabile<br/>401 / 403 / 413"]
+
+  start_node --> pick_provider
+  pick_provider --> call_retry
+  call_retry --> attempt
+  attempt --> check_result
+  check_result -->|"Si"| success_node
+  check_result -->|"No"| check_retryable
+  check_retryable -->|"No"| non_retryable
+  non_retryable --> more_providers
+  check_retryable -->|"Si"| check_attempts
+  check_attempts -->|"Si"| backoff
+  backoff --> attempt
+  check_attempts -->|"No"| more_providers
+  more_providers -->|"Si"| pick_provider
+  more_providers -->|"No"| fail_node
+
+  classDef core fill:#2563eb,stroke:#1d4ed8,color:#fff
+  classDef engine fill:#059669,stroke:#047857,color:#fff
+  classDef ext fill:#6b7280,stroke:#4b5563,color:#fff
+  classDef data fill:#d97706,stroke:#b45309,color:#fff
+
+  class start_node,success_node core
+  class call_retry,attempt,backoff engine
+  class check_result,check_retryable,check_attempts,more_providers data
+  class non_retryable,fail_node,pick_provider ext
+```
 
 ### Multi-provider
 
