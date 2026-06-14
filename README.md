@@ -269,6 +269,16 @@ Found an issue? [Report it here](https://github.com/AndreaBonn/ai-pr-reviewer/is
 
 If this action is useful to you, consider giving it a [star on GitHub](https://github.com/AndreaBonn/ai-pr-reviewer).
 
+## Support the project
+
+AI PR Reviewer is free to use. If it helps you and you want to give something back, you can leave a tip via PayPal. The amount is up to you and it is entirely optional.
+
+<div align="center">
+
+[![Donate with PayPal](https://img.shields.io/badge/Donate-PayPal-00457C?logo=paypal&logoColor=white&style=for-the-badge)](https://paypal.me/AndreaBonacci19)
+
+</div>
+
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
